@@ -1174,7 +1174,7 @@ object DeclareMiner {
       c.traces,
       c.traces.size.toDouble / totalTraces))
     .toDF("rule", "source", "target", "traces", "support")
-    .filter(row => row.getAs[Double]("support") >= supportThreshold)
+    .filter(row => row.getAs[Double]("support") > supportThreshold)
     .write
     .mode(SaveMode.Overwrite)
     .json(Paths.get(outputPath, logName, "ordered.json").toString)

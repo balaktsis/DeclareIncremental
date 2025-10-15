@@ -143,8 +143,8 @@ object OrBranchingMiner {
       prevSupports = Some(currentLevel.map(_._2.cardinality().toDouble))
     }
 
-    // Keep all valid candidates across levels so we can pick best later
-    var allCandidates = currentLevel.toBuffer
+    // Keep track of the best valid candidate seen so far
+    var bestCandidate: Option[(List[String], BitSet)] = currentLevel.headOption
     var k = currentLevel.headOption.map(_._1.length).getOrElse(0) - 1
 
     // Reduce levels by removing one target at a time (top-down approach)
@@ -188,8 +188,11 @@ object OrBranchingMiner {
         Seq.empty
       }
 
-      // Add pruned to allCandidates and continue
-      allCandidates ++= pruned
+      // Update bestCandidate if we found a valid candidate at this level
+      if (pruned.nonEmpty) {
+        bestCandidate = Some(pruned.head)
+      }
+      
       currentLevel = pruned
       
       // For unbounded mode with drop monitoring, track support and check for major drops
@@ -211,19 +214,9 @@ object OrBranchingMiner {
       k -= 1
     }
 
-    if (allCandidates.isEmpty) {
-      None
-    } else {
-      // Convert all candidates to TargetBranchedPairConstraint objects
-      val allConstraints = allCandidates
-        .map { case (targetsList, bits) =>
-          val (sup, traces) = supportAndTraces(bits)
-          TargetBranchedPairConstraint(rule, source, targetsList.toArray, traces)
-        }
-        
-      // Since we're already keeping only the best at each level, we can simply pick the overall best
-      // Tie-breaking: support -> largest target set -> lexicographic
-      Some(allConstraints.maxBy(bc => (bc.traces.size, bc.targets.length, bc.targets.mkString(","))))
+    bestCandidate.map { case (targetsList, bits) =>
+      val (sup, traces) = supportAndTraces(bits)
+      TargetBranchedPairConstraint(rule, source, targetsList.toArray, traces)
     }
   }
 
